@@ -1,0 +1,15 @@
+'''
+internet parser and interpreter
+source:beautifulsoup4
+@featrue: no multithread and multidevice
+@components: parsing application from internet
+'''
+
+'''
+unknown:
+1. starting from which page?, how to jump pages?
+
+2. store data, sql basics
+'''
+
+import beautifulsoup
