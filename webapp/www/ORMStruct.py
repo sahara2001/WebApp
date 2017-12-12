@@ -195,7 +195,63 @@ class MedelMetaclass(type):
 	attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
 	
 	return type.__new__(cls, name, bases, attrs)
+
+'''
+这样，任何继承自Model的类（比如User），会自动通过ModelMetaclass扫描映射关系，并存储到自身的类属性如__table__、__mappings__中。
+
+然后，我们往Model类添加class方法，就可以让所有子类调用class方法：
+'''
+'''
+class Model(dict):
+    
+    ...
+    
+    @classmethod
+    @asyncio.coroutine
+    def find(cls, pk):
+        ' find object by primary key'
+	rs = yield from select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
+	if len(rs) == 0:
+	    return None
+	return cls(**rs[0])
+	
+'''
+User类现在就可以通过类方法实现主键查找：
+user = yield from User.find('123')
+
+往Model类添加实例方法，就可以让所有子类调用实例方法：
+'''
+class Model(dict):
+
+    ...
+
+    @asyncio.coroutine
+    def save(self):
+        args = list(map(self.getValueOrDefault, self.__fields__))
+        args.append(self.getValueOrDefault(self.__primary_key__))
+        rows = yield from execute(self.__insert__, args)
+        if rows != 1:
+            logging.warn('failed to insert record: affected rows: %s' % rows)
+'''
 	
 		
+'''
+最后一步是完善ORM，对于查找，我们可以实现以下方法：
 
+findAll() - 根据WHERE条件查找；
+
+findNumber() - 根据WHERE条件查找，但返回的是整数，适用于select count(*)类型的SQL。
+
+以及update()和remove()方法。
+
+所有这些方法都必须用@asyncio.coroutine装饰，变成一个协程。
+
+调用时需要特别注意：
+
+user.save()
+没有任何效果，因为调用save()仅仅是创建了一个协程，并没有执行它。一定要用：
+
+yield from user.save()
+才真正执行了INSERT操作。
+'''
 	
