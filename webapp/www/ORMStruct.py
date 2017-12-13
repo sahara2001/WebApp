@@ -47,7 +47,7 @@ def select(sql, args, size = None):
 	with (yield from __pool) as conn
 		cur = yield from conn.cursor(aiomysql.DictCursor)
 		yield from cur.execute(sql.replace ('?', '%') , (args or None))
-		if size == None:
+		if size:
 			rs = yield from cur.fetchmany(size);
 		else
 			rs = yield from cur.fetchall();
@@ -73,7 +73,10 @@ def execute(sql, args):
 	return affected
 	
 	
-
+#findAll
+#findNumber
+#update
+#delete
 
 '''
 USER MODEL: 
@@ -215,6 +218,9 @@ class Model(dict):
 	    return None
 	return cls(**rs[0])
 	
+
+   
+	
 '''
 User类现在就可以通过类方法实现主键查找：
 user = yield from User.find('123')
@@ -232,6 +238,32 @@ class Model(dict):
         rows = yield from execute(self.__insert__, args)
         if rows != 1:
             logging.warn('failed to insert record: affected rows: %s' % rows)
+	    
+	    
+    @asyncio.coroutine
+    def findAll(args, lines = None):
+        
+	result = select(args, lines)
+        return result
+    
+    @asyncio.coroutine
+    def findNumber(args, lines = None):
+    
+    	result = select(args, lines)
+	return result
+    
+    @asyncio.coroutine
+    def update()
+    	
+	affected = select(args, lines)
+	return affected
+    @asyncio.coroutine
+    def remove()
+    
+        affected = select(args, lines)
+	return affected
+    
+    
 '''
 	
 		
