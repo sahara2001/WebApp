@@ -241,26 +241,33 @@ class Model(dict):
 	    
 	    
     @asyncio.coroutine
-    def findAll(args, lines = None):
-        
-	result = select(args, lines)
-        return result
-    
+    def findAll(cls, pk):
+        'find all objects by primary key'
+	result = yield from select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk])	#no third default line number to search all records
+     	if len(result) == 0:
+	    return None
+	return cls(result)
+     	
     @asyncio.coroutine
-    def findNumber(args, lines = None):
-    
-    	result = select(args, lines)
-	return result
+    def findNumber(cls, pk):
+        'find number of objects by primary key'
+	result = findAll(cls, pk);
+	if result == None
+	    return 0
+	return len(result)
     
     @asyncio.coroutine
     def update()
-    	
-	affected = select(args, lines)
-	return affected
+	self.delete()
+	self.save()
+	
     @asyncio.coroutine
-    def remove()
-    
-        affected = select(args, lines)
+    def remove(self)		#??? what to remove ???
+    	args = list(map(self.getValueOrDefault, self.__fields__))
+        args.append(self.getValueOrDefault(self.__primary_key__))
+        affected = yield from execute(self.__delete__, args)
+	if affected == 0:
+	    logging.warn('failed to delete record: no rows affected)
 	return affected
     
     
