@@ -196,6 +196,7 @@ class MedelMetaclass(type):
 	attrs['__select__'] = 'select `%s` (%s, `%s`) values (%s)' %(tableName, ','.join(escaped_fields), tableName)
 	attrs['__insert__'] = 'insert into `%s` (%s, `%s`) value (%s)' % (tableName, ','.join(escaped_fields), primaryKey, create_args_string(len(escaped_field) + 1))
 	attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
+	attrs['__update__'] = 'update `%s` SET %s WHERE `%s`=?' % (tableName, ','.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
 	
 	return type.__new__(cls, name, bases, attrs)
 
@@ -258,17 +259,20 @@ class Model(dict):
     
     @asyncio.coroutine
     def update()
-	self.delete()
-	self.save()
+	args = list(map(self.getValue, self.__fields__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            logging.warn('failed to update by primary key: affected rows: %s' % rows)
+
 	
     @asyncio.coroutine
     def remove(self)		#??? what to remove ???
-    	args = list(map(self.getValueOrDefault, self.__fields__))
-        args.append(self.getValueOrDefault(self.__primary_key__))
-        affected = yield from execute(self.__delete__, args)
-	if affected == 0:
+    	args = [self.__primary_key__]
+        affected = await execute(self.__delete__, args)			#use await instead of yield from (in source code -> await)
+	if affected != 1:						#only one user allowed to exist
 	    logging.warn('failed to delete record: no rows affected)
-	return affected
+	
     
     
 '''
