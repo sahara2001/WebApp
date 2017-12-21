@@ -301,7 +301,7 @@ class Model(dict):
 	
 '''
 User类现在就可以通过类方法实现主键查找：
-user = yield from User.find('123')
+# user = yield from User.find('123')
 
 往Model类添加实例方法，就可以让所有子类调用实例方法：
 '''
