@@ -82,7 +82,7 @@ def execute(sql, args):
 USER MODEL: 
 @struct: name, id
 '''
-from orm import Model, StringField, IntegerField
+# from orm import Model, StringField, IntegerField
 
 '''
 设计ORM需要从上层调用者角度来设计。
@@ -90,11 +90,11 @@ from orm import Model, StringField, IntegerField
 我们先考虑如何定义一个User对象，然后把数据库表users和它关联起来。
 '''
 
-class User(Model):
-	__table__ = 'users'
-
-	id = IntegerField(primary_key = True)
-	name = StringField()
+#class User(Model):
+#	__table__ = 'users'
+#
+#	id = IntegerField(primary_key = True)
+#	name = StringField()
 
 '''
 # 创建实例:
@@ -133,6 +133,83 @@ class Model(dict, metaclass=ModelMetaclass):		# inherit from dict
 		logging.debug('using default value for %s: %s' % (key, str(value)))
 		setattr(self, key, value)
 	return value
+
+    @classmethod
+    @asyncio.coroutine
+    def find(cls, pk):
+        ' find object by primary key'
+	rs = yield from select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
+	if len(rs) == 0:
+	    return None
+	return cls(**rs[0])
+
+    @classmethod
+    @asyncio.coroutine
+    def save(self):
+        args = list(map(self.getValueOrDefault, self.__fields__))
+        args.append(self.getValueOrDefault(self.__primary_key__))
+        rows = yield from execute(self.__insert__, args)
+        if rows != 1:
+            logging.warn('failed to insert record: affected rows: %s' % rows)
+	    
+	    
+    @classmethod
+    async def findAll(cls, where=None, args=None, **kw):
+        ' find objects by where clause. '
+        sql = [cls.__select__]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        if args is None:
+            args = []
+        orderBy = kw.get('orderBy', None)
+        if orderBy:
+            sql.append('order by')
+            sql.append(orderBy)
+        limit = kw.get('limit', None)
+        if limit is not None:
+            sql.append('limit')
+            if isinstance(limit, int):
+                sql.append('?')
+                args.append(limit)
+            elif isinstance(limit, tuple) and len(limit) == 2:
+                sql.append('?, ?')
+                args.extend(limit)
+            else:
+                raise ValueError('Invalid limit value: %s' % str(limit))
+        rs = await select(' '.join(sql), args)
+        return [cls(**r) for r in rs]
+
+    @classmethod
+    async def findNumber(cls, selectField, where=None, args=None):
+        ' find number by select and where. '
+        sql = ['select %s _num_ from `%s`' % (selectField, cls.__table__)]
+        if where:
+            sql.append('where')
+            sql.append(where)
+        rs = await select(' '.join(sql), args, 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]['_num_']
+
+    
+    @asyncio.coroutine
+    def update()
+	args = list(map(self.getValue, self.__fields__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            logging.warn('failed to update by primary key: affected rows: %s' % rows)
+
+	
+    @asyncio.coroutine
+    def remove(self)		#??? what to remove ???
+    	args = [self.__primary_key__]
+        affected = await execute(self.__delete__, args)			#use await instead of yield from (in source code -> await)
+	if affected != 1:						#only one user allowed to exist
+	    logging.warn('failed to delete record: no rows affected)
+	
+ 
 '''
 >>>user['id']
 123
@@ -159,7 +236,7 @@ class StringField(Field):
 注意到Model只是一个基类，如何将具体的子类如User的映射信息读取出来呢？答案就是通过metaclass：ModelMetaclass：
 ''''
 	
-class MedelMetaclass(type):
+class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
 	# exempt from Model class itself
 	if name == 'Model':
